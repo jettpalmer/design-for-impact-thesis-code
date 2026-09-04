@@ -1,0 +1,372 @@
+---
+title: "figures"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(ggtext)
+source(here::here("scripts", "load-data.R"))
+
+diverging_bar_chart <- function(data, variable, title) {
+  data |>
+    count(response = {{ variable }}) |>
+    filter(!is.na(response)) |>
+    mutate(signed_n = if_else(response %in% c("Strongly disagree",
+                                              "Disagree",
+                                              "Slightly disagree"), -n, n),
+           response = factor(response, levels = c("Strongly disagree",
+                                                  "Disagree",
+                                                  "Slightly disagree",
+                                                  "Slightly agree",
+                                                  "Agree",
+                                                  "Strongly agree"),
+                             labels = c("Strongly Disagree",
+                                        "Disagree",
+                                        "Slightly Disagree",
+                                        "Slightly Agree",
+                                        "Agree",
+                                        "Strongly Agree"))) |>
+    ggplot(aes(x = "", y = signed_n, fill = response)) +
+    geom_col(data = \(data) filter(data, signed_n < 0),
+             width = 0.32) +
+    geom_col(data = \(data) filter(data, signed_n > 0),
+             width = 0.32,
+             position = position_stack(reverse = TRUE)) +
+    geom_text(data = \(data) filter(data, signed_n < 0),
+              aes(label = n),
+              position = position_stack(vjust = 0.5),
+              color = "white",
+              fontface = "bold",
+              size = 4) +
+    geom_text(data = \(data) filter(data, signed_n > 0),
+              aes(label = n),
+              position = position_stack(vjust = 0.5, reverse = TRUE),
+              color = "white",
+              fontface = "bold",
+              size = 4) +
+    geom_hline(yintercept = 0, color = "gray60", linewidth = 0.45) +
+    coord_flip() +
+    scale_y_continuous(labels = abs) +
+    scale_fill_manual(values = c(
+      "Strongly Disagree" = "#b33b00",
+      "Disagree" = "#e57200",
+      "Slightly Disagree" = "#c98b5a",
+      "Slightly Agree" = "#7f8fa1",
+      "Agree" = "#2c7fb8",
+      "Strongly Agree" = "#00508c")) +
+    labs(
+      title = title,
+      subtitle = paste0(
+        "<span style='color:#b33b00'><b>Strongly Disagree</b></span> | ",
+        "<span style='color:#e57200'><b>Disagree</b></span> | ",
+        "<span style='color:#c98b5a'><b>Slightly Disagree</b></span> | ",
+        "<span style='color:#7f8fa1'><b>Slightly Agree</b></span> | ",
+        "<span style='color:#2c7fb8'><b>Agree</b></span> | ",
+        "<span style='color:#00508c'><b>Strongly Agree</b></span>"),
+      x = NULL,
+      y = NULL,
+      fill = NULL) +
+    theme_minimal(base_size = 11) +
+    theme(legend.position = "none",
+          plot.title = element_text(face = "bold"),
+          plot.subtitle = element_markdown(hjust = 0,
+                                           margin = margin(t = 8, b = 14),
+                                           size = 10),
+          panel.grid.major.y = element_blank(),
+          panel.grid.minor = element_blank())
+}
+
+bar_chart <- function(data, variable, title, levels, labels, colors) {
+  data |>
+    count(response = {{ variable }}) |>
+    filter(!is.na(response)) |>
+    mutate(response = str_squish(str_replace_all(response, "\\u00a0", " ")),
+           response = factor(response, levels = levels, labels = labels)) |>
+    ggplot(aes(x = response, y = n, fill = response)) +
+    geom_col(width = 0.65) +
+    geom_text(aes(label = n),
+              vjust = -0.4,
+              color = "gray20",
+              fontface = "bold",
+              size = 4) +
+    scale_fill_manual(values = colors) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+    labs(
+      title = title,
+      x = NULL,
+      y = "Number of Students",
+      fill = NULL) +
+    theme_minimal(base_size = 11) +
+    theme(legend.position = "none",
+          plot.title = element_text(face = "bold"),
+          axis.text.x = element_text(margin = margin(t = 6)),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor = element_blank())
+}
+```
+
+## Student-Pre
+
+### 1
+
+```{r}
+diverging_bar_chart(student_pre,
+            impact_planning_important,
+            "Impact planning is important in statistical collaboration.")
+```
+
+### 2
+
+```{r}
+diverging_bar_chart(student_pre,
+            impact_evaluation_important,
+            "Impact evaluation is important in statistical collaboration.")
+```
+
+### 3
+
+```{r}
+diverging_bar_chart(student_pre,
+            teach_impact_planning_eval,
+            "Teaching impact planning and evaluation.")
+```
+
+### 4
+
+```{r}
+diverging_bar_chart(student_pre,
+            teach_tool_use,
+            "Teaching students to use the Designed for Impact Tool.")
+```
+
+### 5
+
+```{r}
+diverging_bar_chart(student_pre,
+            understand_tool_use,
+            "Understanding how to use the Designed for Impact Tool.")
+```
+
+### 6
+
+```{r}
+diverging_bar_chart(student_pre,
+            design_intuitive,
+            "The Designed for Impact Tool is intuitive.")
+```
+
+### 7
+
+```{r}
+diverging_bar_chart(student_pre,
+            seems_impractical,
+            "The Designed for Impact Tool seems impractical.")
+```
+
+### 8
+
+```{r}
+diverging_bar_chart(student_pre,
+            overall_useful,
+            "The Designed for Impact Tool is useful.")
+```
+
+### 9
+
+```{r}
+diverging_bar_chart(student_pre,
+            intend_future_use,
+            "Intentions to use the Designed for Impact Tool.")
+```
+
+## Student-Post
+
+### 10
+
+```{r}
+bar_chart(
+  student_post,
+  applied_tool_status,
+  "Most students partially adopted the Design For Impact Tool.",
+  levels = c("I haven't used the tool.",
+             "I have used the tool to some extent.",
+             "I have used the tool in its entirety."),
+  labels = c("Not Used", "Used Partially", "Used Entirely"),
+  colors = c("Not Used" = "#6baed6",
+             "Used Partially" = "#2171b5",
+             "Used Entirely" = "#084594"))
+```
+
+### 11
+
+```{r}
+bar_chart(
+  student_post,
+  future_use_likelihood_not_used,
+  "Future use likelihood: students who have not used it.",
+  levels = c("Unlikely", "Unsure", "Likely", "Very likely"),
+  labels = c("Unlikely", "Unsure", "Likely", "Very Likely"),
+  colors = c("Unlikely" = "#9ecae1",
+             "Unsure" = "#6baed6",
+             "Likely" = "#2171b5",
+             "Very Likely" = "#084594"))
+```
+
+### 12
+
+```{r}
+bar_chart(
+  student_post,
+  future_use_likelihood_used_ideas_only,
+  "Future use likelihood: students who used ideas only.",
+  levels = c("Unlikely", "Unsure", "Likely", "Very likely"),
+  labels = c("Unlikely", "Unsure", "Likely", "Very Likely"),
+  colors = c("Unlikely" = "#9ecae1",
+             "Unsure" = "#6baed6",
+             "Likely" = "#2171b5",
+             "Very Likely" = "#084594"))
+```
+
+### 13
+
+```{r}
+bar_chart(
+  student_post,
+  future_use_likelihood_applied_tool,
+  "Future use likelihood: students who used the tool.",
+  levels = c("Unlikely", "Unsure", "Likely", "Very likely"),
+  labels = c("Unlikely", "Unsure", "Likely", "Very Likely"),
+  colors = c("Unlikely" = "#9ecae1",
+             "Unsure" = "#6baed6",
+             "Likely" = "#2171b5",
+             "Very Likely" = "#084594"))
+```
+
+## Practitioner
+
+### 14
+
+```{r}
+bar_chart(
+  practitioner,
+  work_setting,
+  "Practitioner work settings.",
+  levels = c("Industry", "Academia", "Hybrid / Joint appointment"),
+  labels = c("Industry", "Academia", "Hybrid / Joint"),
+  colors = c("Industry" = "#6baed6",
+             "Academia" = "#2171b5",
+             "Hybrid / Joint" = "#084594"))
+```
+
+### 15
+
+```{r}
+bar_chart(
+  practitioner,
+  years_experience,
+  "Practitioner consulting experience.",
+  levels = c("0-5", "6-10", "11-20", "20+"),
+  labels = c("0–5 Years", "6–10 Years", "11–20 Years", "20+ Years"),
+  colors = c("0–5 Years" = "#9ecae1",
+             "6–10 Years" = "#6baed6",
+             "11–20 Years" = "#2171b5",
+             "20+ Years" = "#084594"))
+```
+
+### 16
+
+```{r}
+diverging_bar_chart(practitioner,
+            purpose_clear,
+            "The Designed for Impact Tool's purpose is clear.")
+```
+
+### 17
+
+```{r}
+diverging_bar_chart(practitioner,
+            planning_eval_distinction_meaningful,
+            "Impact planning and evaluation are meaningfully distinct.")
+```
+
+### 18
+
+```{r}
+diverging_bar_chart(practitioner,
+            structure_flexibility_balance,
+            "The Designed for Impact Tool balances structure and flexibility.")
+```
+
+### 19
+
+```{r}
+diverging_bar_chart(practitioner,
+            concepts_align_with_impact,
+            "Aligns with how impact naturally unfolds in statistical consulting.")
+```
+
+### 20
+
+```{r}
+diverging_bar_chart(practitioner,
+            feasible_constraints,
+            "The Designed for Impact Tool is feasible within project constraints.")
+```
+
+### 21
+
+```{r}
+diverging_bar_chart(practitioner,
+            broadly_applicable,
+            "The Designed for Impact Tool is broadly applicable.")
+```
+
+### 22
+
+```{r}
+diverging_bar_chart(practitioner,
+            prompts_overlooked_discussions,
+            "Prompts discussions that might otherwise be overlooked.")
+```
+
+### 23
+
+```{r}
+diverging_bar_chart(practitioner,
+            strengthens_statistician_role,
+            "Formal tool strengthens statisticians' roles as collaborators.")
+```
+
+### 24
+
+```{r}
+diverging_bar_chart(practitioner,
+            overall_useful,
+            "The Designed for Impact Tool is useful in practice.")
+```
+
+### 25
+
+```{r}
+diverging_bar_chart(practitioner,
+            would_recommend,
+            "Willingness to recommend the Designed for Impact Tool.")
+```
+
+### 26
+
+```{r}
+diverging_bar_chart(practitioner,
+            would_use_for_teaching,
+            "Would consider teaching the Design for Impact Tool.")
+```
+
+### 27
+
+```{r}
+diverging_bar_chart(practitioner,
+            intend_to_integrate_ideas,
+            "Design For Impact contains new ideas that I intend to adopt.")
+```

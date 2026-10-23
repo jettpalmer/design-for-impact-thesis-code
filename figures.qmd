@@ -105,6 +105,212 @@ bar_chart <- function(data, variable, title, levels, labels, colors) {
           panel.grid.major.x = element_blank(),
           panel.grid.minor = element_blank())
 }
+
+summary_likert_chart <- function(data, items, title) {
+  response_levels <- c("Strongly disagree",
+                       "Disagree",
+                       "Slightly disagree",
+                       "Slightly agree",
+                       "Agree",
+                       "Strongly agree")
+  response_labels <- c("Strongly Dis.",
+                       "Disagree",
+                       "Slightly Dis.",
+                       "Slightly Ag.",
+                       "Agree",
+                       "Strongly Ag.")
+  response_colors <- c(
+    "Strongly Dis." = "#b33b00",
+    "Disagree" = "#e57200",
+    "Slightly Dis." = "#c98b5a",
+    "Slightly Ag." = "#7f8fa1",
+    "Agree" = "#2c7fb8",
+    "Strongly Ag." = "#00508c")
+
+  item_positions <- tibble(
+    item = names(items),
+    item_label = unname(items),
+    item_position = rev(seq_along(items)))
+
+  plot_data <- data |>
+    select(all_of(names(items))) |>
+    pivot_longer(everything(), names_to = "item", values_to = "response") |>
+    mutate(response = str_squish(str_replace_all(response, "\\u00a0", " "))) |>
+    filter(!is.na(response), response %in% response_levels) |>
+    count(item, response) |>
+    complete(item = names(items), response = response_levels, fill = list(n = 0)) |>
+    mutate(
+      response = factor(response,
+                        levels = response_levels,
+                        labels = response_labels),
+      side = if_else(response %in% response_labels[1:3], "negative", "positive"),
+      stack_order = case_when(
+        response == "Slightly Dis." ~ 1,
+        response == "Disagree" ~ 2,
+        response == "Strongly Dis." ~ 3,
+        response == "Slightly Ag." ~ 1,
+        response == "Agree" ~ 2,
+        response == "Strongly Ag." ~ 3
+      )) |>
+    arrange(item, side, stack_order) |>
+    group_by(item, side) |>
+    mutate(
+      cumulative_n = cumsum(n),
+      previous_n = lag(cumulative_n, default = 0),
+      xmin = if_else(side == "positive", previous_n, -cumulative_n),
+      xmax = if_else(side == "positive", cumulative_n, -previous_n),
+      label = if_else(n >= 3, as.character(n), "")
+    ) |>
+    ungroup() |>
+    left_join(item_positions, by = "item")
+
+  horizontal_extent <- max(abs(c(plot_data$xmin, plot_data$xmax)))
+
+  plot_data |>
+    ggplot() +
+    geom_rect(aes(xmin = xmin,
+                  xmax = xmax,
+                  ymin = item_position - 0.32,
+                  ymax = item_position + 0.32,
+                  fill = response)) +
+    geom_text(aes(x = (xmin + xmax) / 2,
+                  y = item_position,
+                  label = label),
+              color = "white",
+              fontface = "bold",
+              size = 4) +
+    geom_vline(xintercept = 0, color = "gray60", linewidth = 0.45) +
+    scale_x_continuous(limits = c(-horizontal_extent, horizontal_extent),
+                       labels = abs,
+                       expand = expansion(mult = c(0.02, 0.02))) +
+    scale_y_continuous(breaks = item_positions$item_position,
+                       labels = str_wrap(item_positions$item_label, width = 42),
+                       expand = expansion(add = 0.65)) +
+    scale_fill_manual(values = response_colors, drop = FALSE) +
+    labs(
+      title = title,
+      subtitle = paste0(
+        "<span style='color:#b33b00'><b>Strongly Dis.</b></span> | ",
+        "<span style='color:#e57200'><b>Disagree</b></span> | ",
+        "<span style='color:#c98b5a'><b>Slightly Dis.</b></span> | ",
+        "<span style='color:#7f8fa1'><b>Slightly Ag.</b></span> | ",
+        "<span style='color:#2c7fb8'><b>Agree</b></span> | ",
+        "<span style='color:#00508c'><b>Strongly Ag.</b></span>"),
+      x = NULL,
+      y = NULL,
+      fill = NULL) +
+    theme_minimal(base_size = 11) +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(face = "bold"),
+      plot.subtitle = element_markdown(hjust = 0,
+                                       margin = margin(t = 8, b = 14),
+                                       size = 10),
+      axis.text.y = element_text(hjust = 1, margin = margin(r = 8)),
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor = element_blank(),
+      plot.margin = margin(t = 8, r = 18, b = 8, l = 8))
+}
+```
+
+## Summary Likert visualizations
+
+```{r}
+#| label: fig-practitioner-likert-summary
+#| fig-cap: "Practitioner perceptions of the Designed for Impact Tool. Bars show the number of responses in each Likert category; the centered boundary separates Slightly Disagree from Slightly Agree."
+#| fig-width: 13
+#| fig-height: 8
+#| out-width: 100%
+summary_likert_chart(
+  practitioner,
+  c(
+    strengthens_statistician_role = "Using formal tool strengthens statisticians' role as collaborators.",
+    overall_useful = "DIT is useful for consulting practice.",
+    would_use_for_teaching = "Would use DIT to teach junior consultants.",
+    would_recommend = "Would recommend DIT to other practitioners.",
+    prompts_overlooked_discussions = "DIT prompts overlooked discussions."
+  ),
+  "Practitioner Perceptions of the Designed for Impact Tool"
+)
+```
+
+```{r}
+#| label: fig-student-likert-summary
+#| fig-cap: "Student perceptions of the Designed for Impact Tool. Bars show the number of responses in each Likert category; the centered boundary separates Slightly Disagree from Slightly Agree."
+#| fig-width: 13
+#| fig-height: 8
+#| out-width: 100%
+summary_likert_chart(
+  student_pre,
+  c(
+    impact_planning_important = "Impact planning is important for collaboration.",
+    teach_tool_use = "Future students should learn to use DFI.",
+    understand_tool_use = "I understand how to use DFI.",
+    overall_useful = "DFI is useful for consulting practice.",
+    intend_future_use = "I intend to use DFI in future projects."
+  ),
+  "Student Perceptions of the Design For Impact Tool"
+)
+```
+
+```{r}
+#| label: fig-student-all-likert-summary
+#| fig-cap: "Student perceptions across all nine Likert items. Bars show the number of responses in each Likert category; the centered boundary separates Slightly Disagree from Slightly Agree."
+#| fig-width: 13
+#| fig-height: 11
+#| out-width: 100%
+summary_likert_chart(
+  student_pre,
+  c(
+    impact_planning_important = "Impact planning is important for collaboration.",
+    impact_evaluation_important = "Impact evaluation is important for collaboration.",
+    teach_impact_planning_eval = "Future students should learn impact planning and evaluation.",
+    teach_tool_use = "Future students should learn to use DFI.",
+    understand_tool_use = "I understand how to use DFI.",
+    design_intuitive = "DFI is intuitive and easy to understand.",
+    seems_impractical = "DFI seems impractical for consulting.",
+    overall_useful = "DFI is useful for consulting practice.",
+    intend_future_use = "I intend to use DFI in future projects."
+  ),
+  "Student Perceptions of the Design For Impact Tool: All Likert Items"
+)
+```
+
+```{r}
+#| label: fig-student-first-five-likert-summary
+#| fig-cap: "Student perceptions for the first five Likert items. Bars show the number of responses in each Likert category; the centered boundary separates Slightly Disagree from Slightly Agree."
+#| fig-width: 13
+#| fig-height: 8
+#| out-width: 100%
+summary_likert_chart(
+  student_pre,
+  c(
+    impact_planning_important = "Impact planning is important for collaboration.",
+    impact_evaluation_important = "Impact evaluation is important for collaboration.",
+    teach_impact_planning_eval = "Future students should learn impact planning and evaluation.",
+    teach_tool_use = "Future students should learn to use DFI.",
+    understand_tool_use = "I understand how to use DFI."
+  ),
+  "Student Perceptions of the Design For Impact Tool: Items 1–5"
+)
+```
+
+```{r}
+#| label: fig-student-final-four-likert-summary
+#| fig-cap: "Student perceptions for the final four Likert items. Bars show the number of responses in each Likert category; the centered boundary separates Slightly Disagree from Slightly Agree."
+#| fig-width: 13
+#| fig-height: 7
+#| out-width: 100%
+summary_likert_chart(
+  student_pre,
+  c(
+    design_intuitive = "DFI is intuitive and easy to understand.",
+    seems_impractical = "DFI seems impractical for consulting.",
+    overall_useful = "DFI is useful for consulting practice.",
+    intend_future_use = "I intend to use DFI in future projects."
+  ),
+  "Student Perceptions of the Design For Impact Tool: Items 6–9"
+)
 ```
 
 ## Student-Pre
@@ -138,7 +344,7 @@ diverging_bar_chart(student_pre,
 ```{r}
 diverging_bar_chart(student_pre,
             teach_tool_use,
-            "Teaching students to use the Designed for Impact Tool.")
+            "Future students should be taught Design For Impact.")
 ```
 
 ### 5
@@ -352,7 +558,7 @@ diverging_bar_chart(practitioner,
 ```{r}
 diverging_bar_chart(practitioner,
             would_recommend,
-            "Willingness to recommend the Designed for Impact Tool.")
+            "Would recommend the Design For Impact Tool.")
 ```
 
 ### 26
@@ -360,7 +566,7 @@ diverging_bar_chart(practitioner,
 ```{r}
 diverging_bar_chart(practitioner,
             would_use_for_teaching,
-            "Would consider teaching the Design for Impact Tool.")
+            "Would consider teaching the Design For Impact Tool.")
 ```
 
 ### 27
